@@ -1,20 +1,24 @@
-from typing import Iterable, List, NoReturn, Tuple
+from dataclasses import asdict
+from typing import Iterable, List, Tuple
 
 from sentence_transformers import SentenceTransformer
 
-from data import FunctionItem, Item
-
-class VectorDBClient(object):
+from data import Embeddings, FunctionItem, Item
+from vector_db import MongoDBClient
 
 
 class Retrieval(object):
     FUNCTION_ITEM_PARAMS_TO_EMBED = ['name', 'code', 'docstring', 'params', 'file_path']
     CLASS_ITEM_PARAMS_TO_EMBED = ['name', 'code', 'docstring', 'bases', 'file_path']
 
-    def __init__(self, overlapping_fraction: float, embedding_model: str):
+    def __init__(self,
+                 overlapping_fraction: float,
+                 embedding_model: str,
+                 vector_db_client: MongoDBClient):
         self._overlapping_fraction = overlapping_fraction
         self._embedding = SentenceTransformer(embedding_model,
                                               model_kwargs={"device_map": "auto"})
+        self._vector_db_client = vector_db_client
 
     @property
     def chunk_size(self):
@@ -42,13 +46,13 @@ class Retrieval(object):
                     end = start + chunk_size
                     yield chunk, item
 
-    def get_documents_embeddings(self, documents: List[str]) -> List[float]:
+    def get_documents_embeddings(self, documents: List[str]) -> List[Embeddings]:
         return self._embedding.encode(documents).tolist()
 
-    def _upload_one_item_to_vector_database(self, embedding: List[float], item: Item) -> NoReturn:
-        pass
+    def _upload_one_item_to_vector_database(self, embedding: Embeddings, item: Item) -> None:
+        self._vector_db_client.insert_data([(embedding, asdict(item))])
 
     def upload_retrievable_data(self, data: List[Item]):
         for chunk, item in self._split_items_to_chunks(data):
-            chunk_embedding = self.get_documents_embeddings([chunk])
+            chunk_embedding = self.get_documents_embeddings([chunk])[0]
             self._upload_one_item_to_vector_database(chunk_embedding, item)

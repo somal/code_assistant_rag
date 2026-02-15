@@ -34,6 +34,7 @@ class ClassItem:
 
 
 Item: TypeAlias = FunctionItem | ClassItem
+Embeddings: TypeAlias = List[float]
 
 
 class CodeChunkVisitor(ast.NodeVisitor):
@@ -132,6 +133,5 @@ def split_code_from_repo_into_items(repo_path: str, target_dirs: List[str]) -> L
             for item in items:
                 item.file_path = str(file_path.relative_to(repo_path))
                 all_items.append(item)
-            break
 
     return all_items

@@ -10,5 +10,6 @@ dependencies = [
     "pymongo>=4.8.0",
     "gradio==6.5.1",
     "gitpython",
-    "accelerate"
+    "accelerate",
+    "dotenv"
 ]
