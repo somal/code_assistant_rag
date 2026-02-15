@@ -1,10 +1,39 @@
 import ast
 import os
 import textwrap
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import List, Literal, Optional, TypeAlias
 
 from git import Repo
+
+
+@dataclass
+class FunctionItem:
+    type: Literal["function", "method"]
+    name: str
+    class_name: str
+    start_line: int
+    end_line: int
+    code: str
+    docstring: str
+    params: str
+    file_path: Optional[str] = None
+
+
+@dataclass
+class ClassItem:
+    type: Literal['class']
+    name: str
+    start_line: int
+    end_line: int
+    code: str
+    docstring: str
+    bases: str
+    file_path: Optional[str] = None
+
+
+Item: TypeAlias = FunctionItem | ClassItem
 
 
 class CodeChunkVisitor(ast.NodeVisitor):
@@ -29,7 +58,7 @@ class CodeChunkVisitor(ast.NodeVisitor):
         self.visit_FunctionDef(node)
 
 
-def _split_code_by_ast(file_path: str) -> List[Dict[str, Any]]:
+def _split_code_by_ast(file_path: str) -> List[Item]:
     print(file_path)
     with open(file_path, 'r', encoding='utf-8') as f:
         source = f.read()
@@ -42,7 +71,7 @@ def _split_code_by_ast(file_path: str) -> List[Dict[str, Any]]:
     return visitor.chunks
 
 
-def extract_function_chunk(node: ast.FunctionDef, source: str, class_name: str = None) -> Dict[str, Any]:
+def extract_function_chunk(node: ast.FunctionDef, source: str, class_name: str = None) -> FunctionItem:
     start_line = node.lineno - 1
     end_line = node.end_lineno - 1 if hasattr(node, 'end_lineno') else start_line + 20
 
@@ -51,37 +80,37 @@ def extract_function_chunk(node: ast.FunctionDef, source: str, class_name: str =
 
     func_code = textwrap.dedent(func_code)
 
-    metadata = {
-        "type": "function" if class_name is None else "method",
-        "name": node.name,
-        "class": class_name,
-        "start_line": node.lineno,
-        "end_line": end_line + 1,
-        "code": func_code.strip(),
-        "docstring": ast.get_docstring(node) or "",
-        "params": [arg.arg for arg in node.args.args if hasattr(arg, 'arg')]
-    }
+    function_item = FunctionItem(
+        type="function" if class_name is None else "method",
+        name=f'{class_name}.{node.name}',
+        class_name=class_name,
+        start_line=node.lineno,
+        end_line=end_line + 1,
+        code=func_code.strip(),
+        docstring=ast.get_docstring(node) or "",
+        params=', '.join([str(arg.arg) for arg in node.args.args if hasattr(arg, 'arg')])
+    )
 
-    return metadata
+    return function_item
 
 
-def extract_class_chunk(node: ast.ClassDef, source: str) -> Dict[str, Any]:
+def extract_class_chunk(node: ast.ClassDef, source: str) -> ClassItem:
     start_line = node.lineno - 1
     end_line = node.end_lineno - 1
 
     class_code = '\n'.join(source.splitlines(keepends=True)[start_line:end_line])
 
-    metadata = {
-        "type": "class",
-        "name": node.name,
-        "start_line": node.lineno,
-        "end_line": node.end_lineno,
-        "code": class_code.strip(),
-        "docstring": ast.get_docstring(node) or "",
-        "bases": [base.id for base in node.bases if isinstance(base, ast.Name)]
-    }
+    items = ClassItem(
+        type="class",
+        name=node.name,
+        start_line=node.lineno,
+        end_line=node.end_lineno,
+        code=class_code.strip(),
+        docstring=ast.get_docstring(node) or "",
+        bases=', '.join([base.id for base in node.bases if isinstance(base, ast.Name)])
+    )
 
-    return metadata
+    return items
 
 
 def clone_repo(repo_url: str, local_path):
@@ -92,7 +121,7 @@ def clone_repo(repo_url: str, local_path):
         print("Repo already exists")
 
 
-def split_code_from_repo_into_items(repo_path: str, target_dirs: List[str]) -> List[Dict[str, Any]]:
+def split_code_from_repo_into_items(repo_path: str, target_dirs: List[str]) -> List[Item]:
     all_items = []
     for folder in target_dirs:
         folder_path = Path(repo_path) / folder
@@ -101,7 +130,7 @@ def split_code_from_repo_into_items(repo_path: str, target_dirs: List[str]) -> L
 
             items = _split_code_by_ast(str(file_path))
             for item in items:
-                item['file_path'] = str(file_path.relative_to(repo_path))
+                item.file_path = str(file_path.relative_to(repo_path))
                 all_items.append(item)
             break
 
