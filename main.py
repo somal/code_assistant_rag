@@ -21,8 +21,11 @@ items = split_code_from_repo_into_items(repo_path=local_path, target_dirs=target
 
 
 mongo_client = MongoDBClient(uri=uri)
-mongo_client._delete_all()
-r = Retrieval(overlapping_fraction=0.5, embedding_model=embedding_model, vector_db_client=mongo_client)
+r = Retrieval(overlapping_fraction=0.5,
+              embedding_model=embedding_model,
+              vector_db_client=mongo_client,
+              retrieve_top_k=5)
+# mongo_client._delete_all()
 # r.upload_retrievable_data(items)
 
 controller = Controller(retrieval=r)

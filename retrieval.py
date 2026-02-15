@@ -1,9 +1,9 @@
 from dataclasses import asdict
-from typing import Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List, Tuple
 
 from sentence_transformers import SentenceTransformer
 
-from data import Embeddings, FunctionItem, Item
+from data import Embedding, FunctionItem, Item
 from vector_db import MongoDBClient
 
 
@@ -14,11 +14,13 @@ class Retrieval(object):
     def __init__(self,
                  overlapping_fraction: float,
                  embedding_model: str,
-                 vector_db_client: MongoDBClient):
+                 vector_db_client: MongoDBClient,
+                 retrieve_top_k=5):
         self._overlapping_fraction = overlapping_fraction
         self._embedding = SentenceTransformer(embedding_model,
                                               model_kwargs={"device_map": "auto"})
         self._vector_db_client = vector_db_client
+        self._retrieve_top_k = retrieve_top_k
 
     @property
     def chunk_size(self):
@@ -46,13 +48,21 @@ class Retrieval(object):
                     end = start + chunk_size
                     yield chunk, item
 
-    def get_documents_embeddings(self, documents: List[str]) -> List[Embeddings]:
+    def _get_documents_embeddings(self, documents: List[str]) -> List[Embedding]:
         return self._embedding.encode(documents).tolist()
 
-    def _upload_one_item_to_vector_database(self, embedding: Embeddings, item: Item) -> None:
+    def _get_request_embeddings(self, queries: List[str]) -> List[Embedding]:
+        return self._embedding.encode(queries, prompt_name="query").tolist()
+
+    def _upload_one_item_to_vector_database(self, embedding: Embedding, item: Item) -> None:
         self._vector_db_client.insert_data([(embedding, asdict(item))])
 
     def upload_retrievable_data(self, data: List[Item]):
         for chunk, item in self._split_items_to_chunks(data):
-            chunk_embedding = self.get_documents_embeddings([chunk])[0]
+            chunk_embedding = self._get_documents_embeddings([chunk])[0]
             self._upload_one_item_to_vector_database(chunk_embedding, item)
+
+    def retrieve(self, request: str) -> List[Dict[str, Any]]:
+        embedding = self._get_request_embeddings([request])[0]
+        candidates = self._vector_db_client.find_similar(embedding, self._retrieve_top_k)
+        return candidates

@@ -34,7 +34,7 @@ class ClassItem:
 
 
 Item: TypeAlias = FunctionItem | ClassItem
-Embeddings: TypeAlias = List[float]
+Embedding: TypeAlias = List[float]
 
 
 class CodeChunkVisitor(ast.NodeVisitor):

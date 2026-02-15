@@ -17,4 +17,7 @@ def launch_ui(controller: Controller):
         cache_examples=False
     )
 
-    demo.launch(server_name="0.0.0.0", server_port=7860, share=True)
+    demo.launch(server_name="0.0.0.0",
+                server_port=3005,
+                share=True,
+                quiet=False)

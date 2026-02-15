@@ -6,4 +6,6 @@ class Controller(object):
         self._retrieval = retrieval
 
     def answer_on_request(self, request: str):
-        return 'AGI'
+        candidates = self._retrieval.retrieve(request)
+        print(len(candidates))
+        return str(candidates)
