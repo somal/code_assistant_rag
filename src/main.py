@@ -17,7 +17,6 @@ embedding_model = "Qwen/Qwen3-Embedding-0.6B"
 uri = os.environ['MONGODB_CONNECTION_STRING']
 clone_repo(repo_url, local_path)
 items = split_code_from_repo_into_items(repo_path=local_path, target_dirs=target_repo_folder)
-# print([asdict(item) for item in items])
 
 
 mongo_client = MongoDBClient(uri=uri)
