@@ -11,5 +11,6 @@ dependencies = [
     "gradio==6.5.1",
     "gitpython",
     "accelerate",
-    "dotenv"
+    "dotenv",
+    "openai"
 ]
